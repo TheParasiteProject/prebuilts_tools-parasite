@@ -1,0 +1,13 @@
+#!/usr/bin/sh -x
+
+rm -Rf APKEditor.jar
+
+FILE=$(curl -s https://api.github.com/repos/REAndroid/APKEditor/releases/latest \
+| grep -e "https.*APKEditor-.*jar*" \
+| cut -d : -f 2,3 \
+| tr -d \" \
+)
+
+aria2c --quiet=true --input-file=$FILE -d ./ -o APKEditor.jar
+
+chmod +x APKEditor.jar
