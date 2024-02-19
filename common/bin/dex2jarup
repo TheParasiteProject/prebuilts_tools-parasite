@@ -1,0 +1,16 @@
+#!/usr/bin/sh -x
+
+rm -Rf dex2jar
+
+FILE=$(curl -s https://api.github.com/repos/pxb1988/dex2jar/releases/latest \
+| grep -e "https.*dex-tools-.*zip*" \
+| cut -d : -f 2,3 \
+| tr -d \" \
+)
+
+aria2c --quiet=true --input-file=$FILE -d ./ -o dex2jar.zip
+unzip dex2jar
+
+mv dex-tools-* dex-tools
+
+rm -Rf dex2jar.zip
