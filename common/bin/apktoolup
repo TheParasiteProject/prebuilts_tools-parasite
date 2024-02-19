@@ -1,0 +1,20 @@
+#!/usr/bin/sh -x
+
+rm -Rf apktool
+rm -Rf apktool.jar
+
+URL="https://bitbucket.org"
+FILE=$(curl -s https://bitbucket.org/iBotPeaches/apktool/downloads/ \
+| grep -e "href=\".*apktool.*jar\"" | head -1 \
+| cut -d \" -f 2 \
+| tr -d \" \
+)
+
+aria2c --quiet=true $URL$FILE
+aria2c https://raw.githubusercontent.com/iBotPeaches/Apktool/master/scripts/linux/apktool
+
+mv apktool*.jar apktool.jar 
+chmod +x apktool.jar
+chmod +x apktool
+
+sed -i 's/javaOpts=\"-Xmx1024M/javaOpts=\"-Xms32768m -Xmx32768m/g' apktool
