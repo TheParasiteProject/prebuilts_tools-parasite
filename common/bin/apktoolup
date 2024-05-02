@@ -18,3 +18,5 @@ chmod +x apktool.jar
 chmod +x apktool
 
 sed -i 's/javaOpts=\"-Xmx1024M/javaOpts=\"-Xms32768m -Xmx32768m/g' apktool
+
+aria2c --quiet=true https://raw.githubusercontent.com/iBotPeaches/Apktool/master/LICENSE.md -d ./ -o Apktool-LICENSE.md

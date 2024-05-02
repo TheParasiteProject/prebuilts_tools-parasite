@@ -11,3 +11,5 @@ FILE=$(curl -s https://api.github.com/repos/REAndroid/APKEditor/releases/latest 
 aria2c --quiet=true --input-file=$FILE -d ./ -o APKEditor.jar
 
 chmod +x APKEditor.jar
+
+aria2c --quiet=true https://raw.githubusercontent.com/REAndroid/APKEditor/master/LICENSE -d ./ -o APKEditor-LICENSE.md
