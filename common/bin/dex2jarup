@@ -1,6 +1,6 @@
 #!/usr/bin/sh -x
 
-rm -Rf dex2jar
+rm -Rf dex-tools
 
 FILE=$(curl -s https://api.github.com/repos/pxb1988/dex2jar/releases/latest \
 | grep -e "https.*dex-tools-.*zip*" \
