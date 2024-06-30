@@ -2,6 +2,7 @@
 
 rm -Rf apktool
 rm -Rf apktool.jar
+rm -Rf Apktool-LICENSE.md
 
 URL="https://bitbucket.org"
 FILE=$(curl -s https://bitbucket.org/iBotPeaches/apktool/downloads/ \

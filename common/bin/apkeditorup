@@ -1,6 +1,7 @@
 #!/usr/bin/sh -x
 
 rm -Rf APKEditor.jar
+rm -Rf APKEditor-LICENSE.md
 
 FILE=$(curl -s https://api.github.com/repos/REAndroid/APKEditor/releases/latest \
 | grep -e "https.*APKEditor-.*jar*" \
