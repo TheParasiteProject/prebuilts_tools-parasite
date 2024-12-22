@@ -35,7 +35,11 @@ avbroot applies the following patches to the partition images:
 
     Repeat: **_ALWAYS leave `OEM unlocking` enabled if rooted._**
 
-* Any operation that causes an improperly-signed boot image to be flashed will result in the device being unbootable and unrecoverable without unlocking the bootloader again (and thus, triggering a data wipe). This includes the `Direct install` method for updating Magisk. Magisk updates **must** be done by repatching the OTA, not via the app.
+* Any operation that causes an improperly-signed boot image to be flashed will result in the device being unbootable and unrecoverable without unlocking the bootloader again (and thus, triggering a data wipe). A couple ways an improperly-signed boot image could be flashed include:
+
+    * The `Direct install` method for updating Magisk. Magisk updates **must** be done by repatching the OTA, not via the app.
+
+    * The `Uninstall Magisk` feature in Magisk. If root access is no longer needed, Magisk **must** be removed by repatching the OTA with the `--rootless` option, not via the app.
 
     If the boot image is ever modified, **do not reboot**. [Open an issue](https://github.com/chenxiaolong/avbroot/issues/new) for support and be very clear about what steps were done that lead to the situation. If Android is still running and root access works, it might be possible to recover without wiping and starting over.
 
@@ -132,15 +136,21 @@ If you lose your AVB or OTA signing key, you will no longer be able to sign new 
 
 ## Initial setup
 
-1. Reboot into fastboot mode and unlock the bootloader if it isn't already unlocked. This will trigger a data wipe.
+1. Make sure that the version of fastboot is 34 or newer. Older versions have bugs that prevent the `fastboot flashall` command (required later) from working properly.
+
+    ```bash
+    fastboot --version
+    ```
+
+2. Reboot into fastboot mode and unlock the bootloader if it isn't already unlocked. This will trigger a data wipe.
 
     ```bash
     fastboot flashing unlock
     ```
 
-2. When setting things up for the first time, the device must already be running the correct OS. Flash the original unpatched OTA if needed.
+3. When setting things up for the first time, the device must already be running the correct OS. Flash the original unpatched OTA if needed.
 
-3. Extract the partition images from the patched OTA that are different from the original.
+4. Extract the partition images from the patched OTA that are different from the original.
 
     ```bash
     avbroot ota extract \
@@ -151,17 +161,37 @@ If you lose your AVB or OTA signing key, you will no longer be able to sign new 
 
     If you prefer to extract and flash all OS partitions just to be safe, pass in `--all`.
 
-4. Flash the partition images that were extracted.
+5. Set the `ANDROID_PRODUCT_OUT` environment variable to the directory containing the extracted files.
+
+    For sh/bash/zsh (Linux, macOS, WSL):
 
     ```bash
-    ANDROID_PRODUCT_OUT=extracted fastboot flashall --skip-reboot
+    export ANDROID_PRODUCT_OUT=extracted
+    ```
+
+    For PowerShell (Windows):
+
+    ```powershell
+    $env:ANDROID_PRODUCT_OUT = "extracted"
+    ```
+
+    For cmd (Windows):
+
+    ```bat
+    set ANDROID_PRODUCT_OUT=extracted
+    ```
+
+6. Flash the partition images that were extracted.
+
+    ```bash
+    fastboot flashall --skip-reboot
     ```
 
     Note that this only flashes the OS partitions. The bootloader and modem/radio partitions are left untouched due to fastboot limitations. If they are not already up to date or if unsure, after fastboot completes, follow the steps in the [updates section](#updates) to sideload the patched OTA once. Sideloading OTAs always ensures that all partitions are up to date.
 
     Alternatively, for Pixel devices, running `flash-base.sh` from the factory image will also update the bootloader and modem.
 
-5. Set up the custom AVB public key in the bootloader after rebooting from fastbootd to bootloader.
+7. Set up the custom AVB public key in the bootloader after rebooting from fastbootd to bootloader.
 
     ```bash
     fastboot reboot-bootloader
@@ -169,7 +199,7 @@ If you lose your AVB or OTA signing key, you will no longer be able to sign new 
     fastboot flash avb_custom_key /path/to/avb_pkmd.bin
     ```
 
-6. **[Optional]** Before locking the bootloader, reboot into Android once to confirm that everything is properly signed.
+8. **[Optional]** Before locking the bootloader, reboot into Android once to confirm that everything is properly signed.
 
     Install the Magisk or KernelSU app and run the following command:
 
@@ -183,7 +213,7 @@ If you lose your AVB or OTA signing key, you will no longer be able to sign new 
     init: [libfs_avb]Returning avb_handle with status: Success
     ```
 
-7. Reboot back into fastboot and lock the bootloader. This will trigger a data wipe again.
+9. Reboot back into fastboot and lock the bootloader. This will trigger a data wipe again.
 
     ```bash
     fastboot flashing lock
@@ -195,7 +225,7 @@ If you lose your AVB or OTA signing key, you will no longer be able to sign new 
 
     **WARNING**: If you are flashing CalyxOS, the setup wizard will [automatically turn off the `OEM unlocking` switch](https://github.com/CalyxOS/platform_packages_apps_SetupWizard/blob/7d2df25cedcbff83ddb608e628f9d97b38259c26/src/org/lineageos/setupwizard/SetupWizardApp.java#L135-L140). Make sure to manually reenable it again from Android's developer settings. Consider using the [`OEMUnlockOnBoot` module](https://github.com/chenxiaolong/OEMUnlockOnBoot) to automatically ensure OEM unlocking is enabled on every boot.
 
-8. That's it! To install future OS, Magisk, or KernelSU updates, see the [next section](#updates).
+10. That's it! To install future OS, Magisk, or KernelSU updates, see the [next section](#updates).
 
 ## Updates
 
@@ -355,6 +385,12 @@ Note that avbroot will validate that the prepatched image is compatible with the
 
 avbroot can be used for just re-signing an OTA by specifying `--rootless` instead of `--magisk`/`--prepatched`. With this option, the patched OTA will not be rooted. The only modification applied is the replacement of the OTA verification certificate so that the OS can be upgraded with future (patched) OTAs.
 
+### Skipping recovery OTA certificate patches
+
+avbroot can skip modifying `otacerts.zip` in the recovery image with the `--skip-recovery-ota-cert` option. **Do not do this unless you have a good reason to do so.** (For example, if you've already manually inserted the OTA certificate into a boot image specified with `--prepatched` or `--replace`.) When this option is used with `--rootless` (and `--dsu` is not specified), then no modifications are performed on any boot image besides ensuring they are properly signed.
+
+When manually adding the OTA certificate to a boot image, [verifying the patched OTA](#verifying-otas) afterwards is recommended to ensure that it was properly done.
+
 ### Replacing partitions
 
 avbroot supports replacing entire partitions in the OTA, even partitions that are not boot images (eg. `vendor_dlkm`). A partition can be replaced by passing in `--replace <partition name> /path/to/partition.img`.
@@ -426,6 +462,12 @@ avbroot ota extract \
     --all
 ```
 
+### Zip write mode
+
+By default, avbroot uses streaming writes for the output OTA during patching. This means it computes the sha256 digest for the digital signature as the file is being written. This mode causes the zip file to contain data descriptors, which is part of the zip standard and works on the vast majority of devices. However, some devices may have broken zip file parsers and fail to properly read OTA zip files containing data descriptors. If this is the case, pass in `--zip-mode seekable` when patching.
+
+The seekable mode writes zip files without data descriptors, but as the name implies, requires seeking around the file instead of writing it sequentially. The sha256 digest for the digital signature is computed after the zip file has been fully written.
+
 ### Signing with an external program
 
 avbroot supports delegating all RSA signing operations to an external program with the `--signing-helper` option. When using this option, the `--key-avb` and `--key-ota` options must be given a public key instead of a private key.
@@ -447,6 +489,57 @@ By default, this behavior is compatible with the `--signing_helper` option in AO
 ```
 
 Note that avbroot will verify the signature returned by helper program against the public key. This ensures that the patching process will fail appropriately if the wrong private key was used.
+
+### 16K page size developer option
+
+On recent devices running Android 16 and newer, there may be an option in Android's developer options to switch to a 16K page size kernel. This will not work when running an avbroot-patched OS. The switch internally works by flashing incremental OTAs:
+
+* `/vendor/boot_otas/boot_ota_16k.zip` to switch to the 16K page size kernel (requires the `boot` partition to be currently flashed with the 4K kernel)
+* `/vendor/boot_otas/boot_ota_4k.zip` to switch to the 4K page size kernel (requires the `boot` partition to be currently flashed with the 16K kernel)
+
+These `boot_otas` are unflashable when running an avbroot-patched OS because the `payload.bin` inside of them are signed by the OEM's key. These are also not proper OTA files. They don't contain any OTA metadata and the zip file itself is not signed. It's nothing more than a plain old zip file that stores a signed `payload.bin`.
+
+There are no plans to add support for patching these `boot_otas`. It requires support for modifying filesystems and handling incremental OTAs, both of which are very non-trivial.
+
+Folks who are determined to make this work anyway can try these manual steps to sign these `boot_otas` with your own key. Since the incremental OTAs are not being regenerated, the `boot` partition must be left unmodified when running `avbroot ota patch`.
+
+1. Unpack `vendor.img` with avbroot and [afsr](https://github.com/chenxiaolong/afsr).
+
+    ```bash
+    avbroot avb unpack -i vendor.img
+    afsr unpack -i raw.img
+    ```
+
+2. Extract `payload.bin` from `boot_otas/boot_ota_16k.zip`.
+
+3. Re-sign `payload.bin` with your OTA key.
+
+    ```bash
+    avbroot payload repack \
+        -i payload.bin.orig \
+        -o payload.bin \
+        -k ota.key \
+        --output-properties payload_properties.txt
+    ```
+
+4. Create a new zip of `payload.bin` and `payload_properties.txt`. The files must be stored uncompressed (eg. with `zip -0`).
+
+5. Repeat the procedure for `boot_otas/boot_ota_4k.zip`.
+
+6. Repack `vendor.img` and sign it with your AVB key.
+
+    ```bash
+    afsr pack -o raw.img
+    avbroot avb pack -o vendor.img -k avb.key --recompute-size
+    ```
+
+7. Patch the (normal) OTA with:
+
+    ```bash
+    avbroot ota patch \
+        --replace vendor <modified vendor> \
+        <normal arguments...>
+    ```
 
 ## Building from source
 
@@ -474,23 +567,7 @@ It is possible to run the tests if the host is running Linux, qemu-user-static i
 
 ## Verifying digital signatures
 
-First, save the public key to a file listing the keys to be trusted. This is the same key listed in [the author's profile](https://github.com/chenxiaolong/).
-
-```bash
-echo 'avbroot ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDOe6/tBnO7xZhAWXRj3ApUYgn+XZ0wnQiXM8B7tPgv4' > avbroot_trusted_keys
-```
-
-Then, verify the signature of the zip file using the list of trusted keys.
-
-```bash
-ssh-keygen -Y verify -f avbroot_trusted_keys -I avbroot -n file -s <file>.zip.sig < <file>.zip
-```
-
-If the file is successfully verified, the output will be:
-
-```
-Good "file" signature for avbroot with ED25519 key SHA256:Ct0HoRyrFLrnF9W+A/BKEiJmwx7yWkgaW/JvghKrboA
-```
+To verify the digital signatures of the downloads, follow [the steps here](https://github.com/chenxiaolong/chenxiaolong/blob/master/VERIFY_SSH_SIGNATURES.md).
 
 ## Contributing
 
