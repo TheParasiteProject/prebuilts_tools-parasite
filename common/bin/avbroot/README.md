@@ -121,7 +121,7 @@ When patching OTAs for multiple devices, generating unique keys for each device 
 2. Convert the public key portion of the AVB signing key to the AVB public key metadata format. This is the format that the bootloader requires when setting the custom root of trust.
 
     ```bash
-    avbroot key extract-avb -k avb.key -o avb_pkmd.bin
+    avbroot key encode-avb -k avb.key -o avb_pkmd.bin
     ```
 
 3. Generate a self-signed certificate for the OTA signing key. This is used by recovery to verify OTA updates when sideloading.
@@ -297,8 +297,7 @@ Magisk versions 25211 and newer require a writable partition for storing custom 
     ```bash
     avbroot ota extract \
         --input /path/to/ota.zip \
-        --directory . \
-        --boot-only
+        --partition <name> # init_boot or boot, depending on device
     ```
 
 2. Patch the boot image via the Magisk app. This **MUST** be done on the target device or a device of the same model! The partition name will be incorrect if patched from Magisk on a different device model.
@@ -385,11 +384,28 @@ Note that avbroot will validate that the prepatched image is compatible with the
 
 avbroot can be used for just re-signing an OTA by specifying `--rootless` instead of `--magisk`/`--prepatched`. With this option, the patched OTA will not be rooted. The only modification applied is the replacement of the OTA verification certificate so that the OS can be upgraded with future (patched) OTAs.
 
-### Skipping recovery OTA certificate patches
+### Skipping OTA certificate patches
 
-avbroot can skip modifying `otacerts.zip` in the recovery image with the `--skip-recovery-ota-cert` option. **Do not do this unless you have a good reason to do so.** (For example, if you've already manually inserted the OTA certificate into a boot image specified with `--prepatched` or `--replace`.) When this option is used with `--rootless` (and `--dsu` is not specified), then no modifications are performed on any boot image besides ensuring they are properly signed.
+avbroot can skip modifying `otacerts.zip` with the `--skip-system-ota-cert` and `--skip-recovery-ota-cert` options. **Do not use these unless you have a good reason to do so.**
 
-When manually adding the OTA certificate to a boot image, [verifying the patched OTA](#verifying-otas) afterwards is recommended to ensure that it was properly done.
+When `--skip-system-ota-cert` is used, the OTA certificates in the `system` partition will not be modified. This prevents custom OTA updater apps from installing further patched OTAs while booted into Android.
+
+When `--skip-recovery-ota-cert` is used, the OTA certificates in the `vendor_boot` or `recovery` partition will not be modified. **This prevents sideloading further patched OTAs from recovery mode.**
+
+If `--skip-recovery-ota-cert` is used because the OTA certificate was already manually added to the boot image, then [verifying the patched OTA](#verifying-otas) afterwards is recommended to ensure that it was properly done. The verification process is only capable of checking the boot image's copy of the OTA certificates, not the system image's copy of them.
+
+### Skipping all patches
+
+To have avbroot make the absolute minimal changes:
+
+* Specify `--skip-system-ota-cert`
+* Specify `--skip-recovery-ota-cert`
+* Specify `--rootless`
+* Omit `--dsu`
+
+This will re-sign the `vbmeta` partition and the OTA with the custom keys, but leave all other partitions untouched.
+
+**This should only be used for advanced troubleshooting.** Without the OTA certificate patches, the resulting OTA will not be able to install further updates.
 
 ### Replacing partitions
 
@@ -451,16 +467,19 @@ avbroot prompts for the private key passphrases interactively by default. To run
 
 * Use unencrypted private keys. This is strongly discouraged.
 
-### Extracting the entire OTA
+### Extracting an OTA
 
-To extract all images contained within the OTA's `payload.bin`, run:
+To extract the partition images contained within an OTA's `payload.bin`, run:
 
 ```bash
 avbroot ota extract \
     --input /path/to/ota.zip \
-    --directory extracted \
-    --all
+    --directory extracted
 ```
+
+By default, this only extracts the images that could potentially be patched by avbroot. To extract all images, use the `--all` option. To extract specific images, use the `--partition <name>` option, which can be specified multiple times.
+
+This command also supports extracting the embedded OTA certificate and AVB public key using the `--cert-ota` and `--public-key-avb` options. To extract only these components, pass in `--none` to skip extracting partition images.
 
 ### Zip write mode
 
