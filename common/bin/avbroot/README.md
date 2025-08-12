@@ -51,6 +51,8 @@ avbroot applies the following patches to the partition images:
 
 3. Follow the steps to [generate signing keys](#generating-keys).
 
+    Skip this step if you're updating Android, Magisk, or KernelSU after you've performed an [initial setup](#initial-setup). [Updates](#updates) do not require signing keys since you have already generated them in the initial setup.
+
 4. Patch the OTA zip. The base command is:
 
     ```bash
@@ -211,6 +213,8 @@ If you lose your AVB or OTA signing key, you will no longer be able to sign new 
     init: [libfs_avb]Returning avb_handle with status: Success
     ```
 
+    Alternatively, the Android build of avbroot can also be used to [verify the partitions on the device](./README.extra.md#verifying-avb-hashes-and-signatures-on-device).
+
 9. Reboot back into fastboot and lock the bootloader. This will trigger a data wipe again.
 
     ```bash
@@ -223,21 +227,25 @@ If you lose your AVB or OTA signing key, you will no longer be able to sign new 
 
     **WARNING**: If you are flashing CalyxOS, the setup wizard will [automatically turn off the `OEM unlocking` switch](https://github.com/CalyxOS/platform_packages_apps_SetupWizard/blob/7d2df25cedcbff83ddb608e628f9d97b38259c26/src/org/lineageos/setupwizard/SetupWizardApp.java#L135-L140). Make sure to manually reenable it again from Android's developer settings. Consider using the [`OEMUnlockOnBoot` module](https://github.com/chenxiaolong/OEMUnlockOnBoot) to automatically ensure OEM unlocking is enabled on every boot.
 
-10. That's it! To install future OS, Magisk, or KernelSU updates, see the [next section](#updates).
+10. That's it! To update the OS, Magisk, or KernelSU see the [next section](#updates).
 
 ## Updates
 
-Updates to Android, Magisk, and KernelSU are all done the same way by patching (or repatching) the OTA.
+Updates to Android, Magisk, and KernelSU are all done the same way: by patching (or repatching) the OTA.
 
-1. If Magisk or KernelSU is being updated, first install their new `.apk`. If you happen to open the app, make sure it **does not** flash the boot image. Cancel the boot image update prompts if needed.
+1. Generate a new patched OTA by following the steps in the [usage section](#usage).
 
-2. Follow the step in the [usage section](#usage) to patch the new OTA.
+2. If Magisk or KernelSU is being updated, first install their new `.apk`. If you happen to open the app, make sure it **does not** flash the boot image. Cancel the boot image update prompts if needed.
 
 3. Reboot to recovery mode. If the screen is stuck at a `No command` message, press the volume up button once while holding down the power button.
 
 4. Sideload the patched OTA with `adb sideload`.
 
-5. That's it!
+5. Restart your phone. Note: the phone will likely take a long time to startup after an OS update (a few minutes in some cases).
+
+**Warning**: Due to how virtual A/B works, there is a snapshot merge operation that Android runs invisibly in the background after installing an OTA and rebooting. During the snapshot merge process, it's not possible to sideload another OTA from recovery mode. Avoid doing anything that could result in a boot loop (eg. installing modules) until this process is complete because there is no way to recover, aside from unlocking the bootloader (and wiping) again.
+
+The status can be found by running `adb logcat -v color -s update_engine`. Alternatively, if [Custota](https://github.com/chenxiaolong/Custota) is installed (even if it's not configured to point to a custom OTA server), it will show a notification until the snapshot merge operation completes.
 
 ## Reverting to stock firmware
 
@@ -581,8 +589,6 @@ cargo build --release
 The output binary is written to `target/release/avbroot`.
 
 Debug builds work too, but they will run significantly slower (in the sha256 computations) due to compiler optimizations being turned off.
-
-By default, the executable links to the system's bzip2 and liblzma libraries, which are the only external libraries avbroot depends on. To compile and statically link these two libraries, pass in `--features static`.
 
 ### Android cross-compilation
 
