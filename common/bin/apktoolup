@@ -1,0 +1,16 @@
+#!/usr/bin/sh -x
+
+rm -Rf apktool
+rm -Rf apktool.jar
+
+TAG=$(git -c 'versionsort.suffix=-' ls-remote --exit-code --refs --sort='version:refname' --tags https://bitbucket.org/iBotPeaches/apktool.git '*.*.*' | tail --lines=1 | cut --delimiter='/' --fields=3 | sed 's/v//g')
+
+aria2c --quiet=true https://bitbucket.org/iBotPeaches/apktool/downloads/apktool_${TAG}.jar
+aria2c https://raw.githubusercontent.com/iBotPeaches/Apktool/master/scripts/linux/apktool
+
+mv apktool*.jar apktool.jar 
+chmod +x apktool.jar
+chmod +x apktool
+
+sed -i '/javaOpts=""/a source $libdir/common.sh\ntotalram=`getHalfOfTotalRam`' apktool
+sed -i 's/javaOpts=\"-Xmx1024M/javaOpts=\"-Xms${totalram}m -Xmx${totalram}m/g' apktool
